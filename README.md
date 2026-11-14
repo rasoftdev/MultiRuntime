@@ -36,7 +36,33 @@ php -v                   # tu PHP del sistema (8.x)
 
 ## Instalación
 
-Requisitos: Linux (amd64 o arm64). WSL funciona.
+Requisitos: Linux (amd64 o arm64); WSL funciona. No necesita `sudo`: todo va a tu home (`~/.mrt`).
+
+### Opción A: un solo comando (descarga, instala y limpia)
+
+`get.sh` clona el repositorio en una carpeta temporal, compila `mrt` (con el Go del sistema si es
+1.22 o superior; si no, descarga un Go temporal), lo instala en `~/.mrt` y **borra todo lo temporal**
+al terminar, incluso si algo falla.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rasoftdev/MultiRuntime/main/get.sh | bash
+
+# además añade la línea del PATH a ~/.bashrc y ~/.zshrc:
+curl -fsSL https://raw.githubusercontent.com/rasoftdev/MultiRuntime/main/get.sh | bash -s -- --write-rc
+
+# actualizar: volver a ejecutar el mismo comando (conserva las versiones de PHP instaladas)
+# desinstalar (borra ~/.mrt entero, incluidas las versiones de PHP, y las líneas del rc):
+curl -fsSL https://raw.githubusercontent.com/rasoftdev/MultiRuntime/main/get.sh | bash -s -- uninstall
+```
+
+Requiere `git` y `curl`. Variables opcionales: `MRT_REPO` (URL git), `MRT_REF` (rama o tag, por defecto
+`main`) y `MRT_HOME`. Se niega a correr como root (usa tu usuario, sin `sudo`). Como con cualquier
+`curl | bash`, revisa el script antes si no confías en el origen.
+
+> La URL asume que el repositorio vive en `github.com/rasoftdev/MultiRuntime` (rama `main`). Si usas
+> otra ubicación, cambia la URL del comando o define `MRT_REPO`.
+
+### Opción B: desde el repositorio clonado
 
 ```sh
 scripts/build.sh                  # compila dist/mrt-linux-amd64 y dist/mrt-linux-arm64
@@ -153,6 +179,7 @@ internal/phpruntime/   proveedores (static, source), instalación, resolución,
                        Composer, extensiones, update
 internal/shim/         lógica de los atajos php y composer
 scripts/               build.sh, install.sh
+get.sh                 instalador remoto (curl | bash)
 ```
 
 Para añadir otro runtime (Node, Python…) la idea es crear otro paquete junto a `phpruntime`
