@@ -424,8 +424,6 @@ go build ./cmd/mrt
 scripts/build.sh
 ```
 
-No hay tests automáticos todavía.
-
 ---
 
 ## Código abierto
