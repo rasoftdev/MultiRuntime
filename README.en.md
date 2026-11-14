@@ -193,10 +193,19 @@ Notes:
 - **PHP configuration** (`php.ini`) for each version is at `~/.mrt/php/versions/<x.y.z>/etc/php.ini`,
   with extras in `etc/conf.d/*.ini`. Each version has its own; editing one does not affect the others.
   Defaults: `memory_limit = 1G`, `date.timezone = UTC`.
-- **Web server (nginx / apache with php-fpm):** `mrt` manages the command line. The web server does not go
-  through the shims. Versions built from source include `php-fpm`
-  (`~/.mrt/php/versions/<x.y.z>/sbin/php-fpm`), but that path is untested; if your server already has a
-  system php-fpm, the site keeps using it and `mrt` only changes the CLI.
+- **Web server (nginx / apache with php-fpm):** the web server does not go through the shims. If your server
+  already has a system php-fpm, the site keeps using it and `mrt` only changes the CLI. Versions built from
+  source include `php-fpm` and `mrt` can manage it, one process per version, each with its own socket
+  (`~/.mrt/php/versions/<x.y.z>/var/run/php-fpm.sock`):
+  ```sh
+  mrt php fpm start --php 7.4        # writes etc/php-fpm.conf and the pool, then starts
+  mrt php fpm status                 # every version that ships php-fpm
+  mrt php fpm nginx --php 7.4        # prints the location block with fastcgi_pass
+  mrt php fpm reload|restart|stop|test
+  ```
+  Options: `--listen /path.sock` or `--listen 127.0.0.1:9074`. With a unix socket the web server user must be
+  able to open it (mode `0660`: same group, or use `--listen` with TCP). It creates no systemd units and does
+  not reload nginx/apache. Prebuilt versions do not ship php-fpm.
 - **Cron, supervisor, systemd, CI:** your shell's `PATH` does not exist there. Use the full path and run from
   the project root so it finds `.php-version`:
   ```sh
@@ -399,7 +408,7 @@ Tested on Ubuntu 26.04 (WSL, amd64, GCC 15):
 
 - Building 8.x versions from source (only 7.4 has been tested).
 - `mrt php update` with something genuinely outdated (only the "all up to date" case was seen),
-  `ext remove`, `php-fpm` and the `--prune` / `--prebuilt` flags.
+  `ext remove`, `mrt php fpm` (never run against a real php-fpm) and the `--prune` / `--prebuilt` flags.
 - Exactly which extensions the `bulk` static binary ships (check with `php -m`).
 - arm64: only that `mrt` compiles for that architecture was checked, not that it runs.
 - Distros other than Ubuntu (Debian, Fedora, Alpine).

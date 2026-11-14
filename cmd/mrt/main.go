@@ -71,6 +71,9 @@ func usage() {
   mrt php ext add <name>[@ver] build + enable a PECL or bundled extension (e.g. redis, xdebug, gmp)
   mrt php ext list|remove      manage extensions of the active version [--php x.y.z]
 
+  mrt php fpm start|stop|restart|reload|status|test|nginx   manage php-fpm of a version
+                               [--php x.y.z] [--listen /path.sock|host:port] (source builds only)
+
   install flags: --profile source (force compile) | --prebuilt (accept an older prebuilt patch)
 `)
 }
@@ -250,6 +253,7 @@ func phpCmd(args []string) error {
 	args, pinPHP := extractFlag(args, "--php")
 	args, prebuilt := extractBool(args, "--prebuilt")
 	args, prune := extractBool(args, "--prune")
+	args, listen := extractFlag(args, "--listen")
 	if prebuilt {
 		profile = "prebuilt"
 	}
@@ -393,8 +397,100 @@ func phpCmd(args []string) error {
 		return phpruntime.Update(spec, prune)
 	case "ext":
 		return extCmd(rest, pinPHP, cwd)
+	case "fpm":
+		return fpmCmd(rest, pinPHP, listen, cwd)
 	default:
 		return fmt.Errorf("unknown php subcommand %q", sub)
+	}
+	return nil
+}
+
+// fpmVersion picks the exact installed version for fpm: --php, else the one in effect.
+func fpmVersion(pin, cwd string) (string, error) {
+	if pin != "" {
+		v, ok := versions.Latest(pin, phpruntime.Installed())
+		if !ok {
+			return "", fmt.Errorf("PHP %s is not installed", pin)
+		}
+		return v.String(), nil
+	}
+	r, err := phpruntime.Resolve(cwd)
+	if err != nil {
+		return "", err
+	}
+	if r.Version == "" {
+		return "", fmt.Errorf("no managed PHP in effect here: pin one with `mrt php local <version>` or pass --php")
+	}
+	return r.Version, nil
+}
+
+// fpmCmd handles `mrt php fpm ...`.
+func fpmCmd(args []string, pin, listen, cwd string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: mrt php fpm start|stop|restart|reload|status|test|nginx")
+	}
+	if args[0] == "status" && pin == "" {
+		// Overview of every installed version that ships php-fpm.
+		for _, v := range phpruntime.Installed() {
+			s := v.String()
+			if _, err := os.Stat(phpruntime.FPMBin(s)); err != nil {
+				continue
+			}
+			state := "stopped"
+			if pid := phpruntime.FPMPid(s); pid != 0 {
+				state = fmt.Sprintf("running (pid %d)", pid)
+			}
+			fmt.Printf("%-10s %-20s %s\n", s, state, phpruntime.FPMListen(s))
+		}
+		return nil
+	}
+	v, err := fpmVersion(pin, cwd)
+	if err != nil {
+		return err
+	}
+	switch args[0] {
+	case "start":
+		if err := phpruntime.FPMStart(v, listen); err != nil {
+			return err
+		}
+		fmt.Printf("php-fpm %s started, listening on %s\n", v, phpruntime.FPMListen(v))
+	case "stop":
+		if err := phpruntime.FPMStop(v); err != nil {
+			return err
+		}
+		fmt.Printf("php-fpm %s stopped\n", v)
+	case "restart":
+		if phpruntime.FPMPid(v) != 0 {
+			if err := phpruntime.FPMStop(v); err != nil {
+				return err
+			}
+		}
+		if err := phpruntime.FPMStart(v, listen); err != nil {
+			return err
+		}
+		fmt.Printf("php-fpm %s restarted, listening on %s\n", v, phpruntime.FPMListen(v))
+	case "reload":
+		return phpruntime.FPMReload(v)
+	case "status":
+		if pid := phpruntime.FPMPid(v); pid != 0 {
+			fmt.Printf("php-fpm %s running (pid %d) on %s\n", v, pid, phpruntime.FPMListen(v))
+		} else {
+			fmt.Printf("php-fpm %s stopped\n", v)
+		}
+	case "test":
+		if err := phpruntime.FPMTest(v); err != nil {
+			return err
+		}
+		fmt.Println("configuration ok")
+	case "nginx":
+		l := phpruntime.FPMListen(v)
+		pass := "unix:" + l
+		if !strings.HasPrefix(l, "/") {
+			pass = l
+		}
+		fmt.Printf("# PHP %s\nlocation ~ [.]php$ {\n    include fastcgi_params;\n    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n    fastcgi_pass %s;\n}\n", v, pass)
+	default:
+		return fmt.Errorf("unknown fpm subcommand %q", args[0])
 	}
 	return nil
 }
