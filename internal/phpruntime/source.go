@@ -104,7 +104,7 @@ var legacyDeps = []dep{
 		configure: func(p string) []string {
 			return autoconf(p, "--with-shared", "--without-debug", "--without-ada", "--without-cxx-binding",
 				"--without-manpages", "--without-tests", "--enable-pc-files", "--with-pkg-config-libdir="+p+"/lib/pkgconfig",
-				"--with-termlib", "--with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo")
+				"--with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo")
 		}},
 	{name: "readline", url: "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz",
 		sha:       "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35",
