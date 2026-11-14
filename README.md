@@ -217,6 +217,59 @@ Notas:
   `~/.mrt/cache/build/<versión>/build.log`. Al volver a ejecutar el comando, las librerías que ya
   terminaron no se recompilan.
 
+### Servir un sitio con php-fpm y nginx
+
+Solo con versiones compiladas desde fuente (las precompiladas no traen php-fpm).
+
+1. **Arrancar php-fpm** de la versión:
+   ```sh
+   mrt php install 7.4 --profile source
+   mrt php fpm start --php 7.4
+   mrt php fpm status                  # versión, estado y socket
+   ```
+   `start` genera `etc/php-fpm.conf` (pid y log) y `etc/php-fpm.d/www.conf` (pool) dentro de
+   `~/.mrt/php/versions/<x.y.z>/`. Puedes editarlos: `start` no los reescribe salvo que pases `--listen`.
+   Comprueba con `mrt php fpm test` y aplica con `mrt php fpm reload`. php-fpm usa el mismo `php.ini` y
+   `conf.d/` que la CLI de esa versión. El log está en `var/log/php-fpm.log`.
+
+2. **Permisos del socket.** Por defecto escucha en un socket unix (`var/run/php-fpm.sock`, modo `0660`) que
+   pertenece a tu usuario, y nginx corre como otro (`www-data`, `nginx`), así que no podrá abrirlo. Elige una:
+   - TCP, lo más simple: `mrt php fpm restart --php 7.4 --listen 127.0.0.1:9074`
+   - Socket unix: añade el usuario de nginx a tu grupo (`sudo usermod -aG <tu-grupo> www-data`) y reinicia nginx.
+
+3. **Vhost de nginx.** `mrt php fpm nginx --php 7.4` imprime el bloque `location` con el `fastcgi_pass`
+   correcto. Un vhost completo:
+   ```nginx
+   server {
+       listen 80;
+       server_name mi-sitio.test;
+       root /var/www/mi-sitio/public;
+       index index.php;
+
+       location / {
+           try_files $uri $uri/ /index.php?$query_string;
+       }
+
+       # PHP 7.4 (salida de: mrt php fpm nginx --php 7.4)
+       location ~ [.]php$ {
+           include fastcgi_params;
+           fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+           fastcgi_pass 127.0.0.1:9074;
+           # con socket unix: fastcgi_pass unix:/home/tu-usuario/.mrt/php/versions/7.4.x/var/run/php-fpm.sock;
+       }
+   }
+   ```
+   Después: `sudo nginx -t && sudo systemctl reload nginx`.
+
+**Varios sitios con versiones distintas:** arranca un php-fpm por versión, cada uno con su puerto o socket, y
+apunta el `fastcgi_pass` de cada vhost al que le toca:
+```sh
+mrt php fpm start --php 7.4 --listen 127.0.0.1:9074
+mrt php fpm start --php 8.3 --listen 127.0.0.1:9083
+```
+El `.php-version` solo afecta a la CLI; para el sitio web manda el `fastcgi_pass`, así que mantén ambos
+alineados a mano. `mrt` no crea unidades de systemd: php-fpm no arranca solo al reiniciar el servidor.
+
 ---
 
 ## 4. Apuntar un proyecto a una versión de PHP
@@ -338,6 +391,10 @@ hasta que lo cambies. Para actualizar `mrt` en sí, vuelve a ejecutar el comando
 | `mrt php update [spec] [--prune]` | instala el último parche de cada línea instalada |
 | `mrt php uninstall <x.y.z>` | borra una versión |
 | `mrt php ext add\|list\|remove` | gestiona extensiones de la versión activa (`--php x.y.z` para otra) |
+| `mrt php fpm start\|stop\|restart\|reload` | gestiona el php-fpm de una versión compilada desde fuente (`--php x.y.z`, `--listen /ruta.sock\|host:puerto`) |
+| `mrt php fpm status` | sin `--php`, lista las versiones con php-fpm, su estado y su socket |
+| `mrt php fpm test` | valida la configuración de php-fpm de la versión |
+| `mrt php fpm nginx` | imprime el bloque `location` de nginx con el `fastcgi_pass` de la versión |
 
 Opciones de instalación:
 
