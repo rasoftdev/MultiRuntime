@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="MultiRuntime.webp" alt="MultiRuntime: múltiples versiones de PHP en un solo servidor (PHP 7.4, 8.1, 8.3, 8.5)" width="100%">
+</p>
+
 # MultiRuntime (`mrt`)
 
 Gestor de versiones de runtimes para Linux, al estilo `nvm`, empezando por **PHP**.

@@ -210,12 +210,37 @@ func (b *builder) run(dir, step string, args ...string) error {
 	}
 	defer log.Close()
 	fmt.Fprintf(log, "\n$ (%s) %s\n", dir, strings.Join(args, " "))
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command(b.lookPath(args[0]), args[1:]...)
 	cmd.Dir, cmd.Env, cmd.Stdout, cmd.Stderr = dir, b.env, log, log
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s failed: %w\n--- last lines of %s ---\n%s", step, err, b.logPath, tail(b.logPath, 30))
 	}
 	return nil
+}
+
+// lookPath resolves a command against the PATH in b.env (the last PATH entry
+// wins), not the PATH of the mrt process: tools such as the bundled cmake or
+// the freshly built phpize are only reachable through the build environment.
+func (b *builder) lookPath(name string) string {
+	if strings.ContainsRune(name, '/') {
+		return name
+	}
+	pathVar := os.Getenv("PATH")
+	for _, e := range b.env {
+		if v, ok := strings.CutPrefix(e, "PATH="); ok {
+			pathVar = v
+		}
+	}
+	for _, d := range filepath.SplitList(pathVar) {
+		if d == "" {
+			continue
+		}
+		p := filepath.Join(d, name)
+		if st, err := os.Stat(p); err == nil && !st.IsDir() && st.Mode()&0o111 != 0 {
+			return p
+		}
+	}
+	return name
 }
 
 func tail(path string, n int) string {
