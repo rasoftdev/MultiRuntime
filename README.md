@@ -80,6 +80,70 @@ Compilar `mrt` requiere Go (probado con 1.27).
 
 Comprobar la instalación: `mrt doctor`.
 
+## Apuntar un proyecto a una versión de PHP
+
+La versión de un proyecto se define con un archivo `.php-version` en su raíz. Es un texto plano con la
+versión, igual que en `nvm`/`pyenv`.
+
+```sh
+cd /ruta/a/mi-proyecto
+mrt php install 7.4        # una sola vez por máquina (si no está instalada)
+mrt php local 7.4          # crea .php-version con "7.4"
+php -v                     # PHP 7.4.x
+composer install           # corre con PHP 7.4
+```
+
+`mrt php local <versión>` es equivalente a crear el archivo a mano:
+
+```sh
+echo "7.4" > .php-version
+```
+
+**Formatos aceptados**
+
+| Contenido | Significa |
+|---|---|
+| `8` | el último PHP 8.x instalado |
+| `8.3` | el último parche 8.3.x instalado (recomendado: sigue los parches de seguridad) |
+| `8.3.12` | exactamente esa versión |
+| `system` | ignorar mrt y usar el PHP del sistema |
+
+Se permiten líneas vacías y comentarios que empiecen por `#`; solo cuenta la primera línea con contenido.
+
+**Reglas**
+
+- `mrt` busca `.php-version` en el directorio actual y **sube por los directorios padre**, así que
+  funciona desde cualquier subcarpeta del proyecto (`app/`, `storage/`, etc.).
+- Si hay varios, gana el más cercano. Un monorepo puede tener un `.php-version` distinto por carpeta.
+- Si el proyecto pide una versión que no está instalada, `php` y `composer` se detienen con el mensaje
+  `Run: mrt php install <versión>`; no usan otra por su cuenta.
+- Sin `.php-version` se usa la versión global (`mrt php global 8.3`) y, si no hay ninguna, el PHP del sistema.
+- Commitea `.php-version` al repositorio: todo el equipo y el servidor usan la misma versión.
+
+**Orden de prioridad completo**
+
+1. Variable `MRT_PHP_VERSION` (solo para ese comando o sesión)
+2. `.php-version` más cercano, subiendo desde el directorio actual
+3. Versión global (`mrt php global <versión>`)
+4. PHP del sistema
+
+```sh
+MRT_PHP_VERSION=8.3 php -v           # prueba puntual sin tocar el proyecto
+mrt php current                      # qué versión se usa aquí y de dónde viene
+mrt php which                        # ruta del binario en uso
+```
+
+**Fuera de la terminal interactiva** (cron, supervisor, systemd, CI), el `PATH` de tu shell no existe.
+Llama al atajo con su ruta completa desde la raíz del proyecto, para que encuentre el `.php-version`:
+
+```sh
+cd /var/www/mi-proyecto && ~/.mrt/shims/php artisan schedule:run
+```
+
+**Cambiar de versión más adelante:** `mrt php local 8.3` sobrescribe el archivo. Después de cambiar de
+rama de PHP conviene volver a resolver dependencias (`composer install`, o `composer update` si tu
+`composer.json` lo permite).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -146,18 +210,32 @@ CMake, que necesitan unas pocas librerías, se descarga en una versión fija y n
 
 ## Estado y límites
 
-Probado en Ubuntu 26.04 (WSL, amd64):
+Probado en Ubuntu 26.04 (WSL, amd64, GCC 15):
 
-- Binario estático PHP 8.1.34 + Composer 2.11.2 con `.php-version`, y vuelta a PHP 8.3 del sistema fuera del proyecto.
-- PHP 7.4.33 compilado desde fuente (36 módulos, HTTPS y curl con OpenSSL 1.1.1w), `composer require monolog/monolog:^2.9` funcionando.
+- Binario estático PHP 8.1.34 + Composer 2.11.2 con `.php-version`, y vuelta al PHP 8.3 del sistema fuera del proyecto.
+- PHP 7.4.33 compilado desde fuente en ~4,5 min (con las librerías ya compiladas; la primera vez, que las
+  compila todas, tarda bastante más). Con 53 módulos, entre ellos `gd` (png, jpeg, freetype), `zip`, `intl`
+  (ICU 72.1), `sodium`, `readline`, `pgsql`/`pdo_pgsql`, `xsl`, `soap`; HTTPS y curl con OpenSSL 1.1.1w.
+- `mrt php ext add redis` (PECL) y `mrt php ext add gmp` (incluida en PHP, con su librería): compilan, se
+  activan y cargan; `ext list` funciona.
+- Laravel 8.83 sobre PHP 7.4.33: `composer create-project`, `php artisan` y `composer install` desde un
+  `composer.lock`; `php` sigue resolviendo 7.4 desde subdirectorios del proyecto.
+- `get.sh` completo contra un repositorio local: descarga, Go temporal, instalación, reejecución como
+  actualización, desinstalación y limpieza de temporales.
 
-Escrito pero **sin verificar de extremo a extremo** (comprueba el resultado antes de depender de ello):
+**Sin verificar** (comprueba el resultado antes de depender de ello):
 
-- Las extensiones añadidas después: `gd`, `zip`, `intl`, `sodium`, `readline`, `pgsql`, `xsl`, `soap`, `php-fpm`.
-- `mrt php ext add/remove/list`.
-- Compilar versiones 8.x desde fuente.
-- `mrt php update` / `outdated`.
-- arm64: solo se comprobó que `mrt` compila para esa arquitectura.
+- Compilar versiones 8.x desde fuente (solo se ha probado 7.4).
+- `mrt php update` con algo realmente desactualizado (solo se vio el caso "todo al día"), `ext remove`,
+  `php-fpm` y los flags `--prune` / `--prebuilt`.
+- arm64: solo se comprobó que `mrt` compila para esa arquitectura, no que se ejecute.
+- Otras distros además de Ubuntu (Debian, Fedora, Alpine).
+- `get.sh`: la negativa a correr como root y la opción `--write-rc`.
+
+Nota sobre Composer: desde la 2.9, `composer require/update/create-project` bloquea por defecto los paquetes
+con avisos de seguridad. En proyectos antiguos (p. ej. Laravel 8) puede impedir resolver dependencias; se
+desactiva con `COMPOSER_NO_SECURITY_BLOCKING=1` o `config.audit.block-insecure: false` en `composer.json`.
+`composer install` desde un `composer.lock` existente no se ve afectado.
 
 Límites conocidos:
 
