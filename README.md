@@ -2,6 +2,8 @@
   <img src="MultiRuntime.webp" alt="MultiRuntime: múltiples versiones de PHP en un solo servidor (PHP 7.4, 8.1, 8.3, 8.5)" width="100%">
 </p>
 
+<p align="center"><a href="README.en.md">English</a> · <b>Español</b></p>
+
 # MultiRuntime (`mrt`)
 
 Gestor de versiones de runtimes para Linux, al estilo `nvm`, empezando por **PHP**.
@@ -423,3 +425,35 @@ scripts/build.sh
 ```
 
 No hay tests automáticos todavía.
+
+---
+
+## Código abierto
+
+MultiRuntime es software libre y de código abierto, publicado bajo la **licencia MIT** (ver [LICENSE](LICENSE)):
+puedes usarlo, copiarlo, modificarlo y distribuirlo, también en proyectos comerciales, conservando el aviso de
+copyright.
+
+**Contribuir.** Las contribuciones son bienvenidas:
+
+1. Abre un *issue* con el error o la idea (incluye la salida de `mrt doctor` y `mrt php current`, tu distro y arquitectura).
+2. Para cambios de código, haz un *fork*, crea una rama y abre un *pull request*.
+3. Antes de enviarlo: `gofmt -l .` sin salida, `go vet ./...` limpio y `scripts/build.sh` compilando para amd64 y arm64.
+4. Si cambias el comportamiento o los comandos, actualiza **los dos README** (`README.md` y `README.en.md`).
+
+Especialmente útiles: pruebas en otras distros (Debian, Fedora, Alpine) y en arm64, compilar versiones 8.x desde
+fuente y tests automáticos (ver [Estado y límites](#9-estado-y-límites)).
+
+**Software de terceros.** `mrt` descarga y usa software ajeno, cada uno con su propia licencia: PHP (PHP License),
+Composer (MIT), OpenSSL, libxml2, curl, ICU, SQLite y el resto de librerías que compila, además de los binarios de
+[static-php-cli](https://github.com/crazywhalecc/static-php-cli). La licencia MIT de este repositorio cubre solo el
+código de `mrt`, no ese software.
+
+## Autor y contacto
+
+Creado por **Ricardo Alvarez** ([RASOFTDEV](https://github.com/rasoftdev)).
+
+- Correo: [dev@ricardoalvarez.co](mailto:dev@ricardoalvarez.co)
+- Web: [me.ricardoalvarez.co](https://me.ricardoalvarez.co)
+
+¿Encontraste un error o tienes una idea? Escríbeme por correo.
