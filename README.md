@@ -6,7 +6,7 @@
 
 # MultiRuntime (`mrt`)
 
-Gestor de versiones de runtimes para Linux, al estilo `nvm`, empezando por **PHP**.
+Gestor de versiones de runtimes para Linux (y, de forma experimental, macOS), al estilo `nvm`, empezando por **PHP**.
 Un solo binario en Go. Te permite tener tu PHP más reciente en el sistema y, a la vez,
 usar PHP 7.4 (u otra versión) en proyectos concretos, con su propio `composer` y sus
 propias extensiones. No usa Docker ni toca los paquetes del sistema.
@@ -42,7 +42,7 @@ Lo que hace falta depende de **qué vas a hacer**. No todo el mundo necesita un 
 
 | Para… | Necesitas | Notas |
 |---|---|---|
-| **Instalar `mrt`** | Linux (amd64 o arm64; WSL sirve), `bash`, `git`, `curl` | Sin `sudo`: usa tu usuario normal. **No hace falta tener Go**: si no está, se descarga uno temporal y se borra. |
+| **Instalar `mrt`** | Linux (amd64 o arm64; WSL sirve) o [macOS (experimental)](#macos-experimental), `bash`, `git`, `curl` | Sin `sudo`: usa tu usuario normal. **No hace falta tener Go**: si no está, se descarga uno temporal y se borra. |
 | **Instalar un PHP precompilado** (8.0 en adelante) | Nada más que conexión a internet | Binario estático: se instala en segundos. Suele ir uno o dos parches por detrás de php.net. |
 | **Compilar PHP desde fuente** (obligatorio para 7.4; recomendado para el último parche de 8.x) | `gcc`, `make`, `perl`, `pkg-config`, `tar`, `xz` | `mrt` lo comprueba antes de empezar y te dice qué falta. CMake no hace falta: se descarga uno propio. |
 | **Añadir extensiones** (`mrt php ext add`) | Lo anterior + `autoconf` y `m4` | Solo en versiones compiladas desde fuente. |
@@ -73,6 +73,27 @@ sudo apk add build-base perl pkgconf xz autoconf m4
 `mrt php install <versión>` elige siempre el **parche más alto disponible** entre todas las fuentes. Por eso,
 sin `--prebuilt`, instalar una 8.x puede compilar desde fuente si php.net tiene un parche más nuevo que el
 binario estático; si faltan las herramientas de compilación, se detiene con un mensaje claro y no instala nada.
+
+### macOS (experimental)
+
+`mrt` también se puede instalar en macOS (Intel y Apple Silicon) con el mismo comando de la sección 2, pero
+**todavía no se ha probado en un Mac**: solo se ha comprobado que compila para `darwin/amd64` y `darwin/arm64`.
+Funciona así:
+
+| Versión | Cómo se obtiene en macOS | Requisito |
+|---|---|---|
+| PHP 8.0 o superior | binario estático precompilado (`mrt php install 8.3`) | ninguno |
+| **PHP 7.4** | **Homebrew**: `mrt php install 7.4` ejecuta `brew tap shivammathur/php` y `brew install shivammathur/php/php@7.4`, y registra ese PHP en `mrt` | [Homebrew](https://brew.sh) instalado |
+
+- PHP 7.4 no se compila desde fuente en macOS: se usa la fórmula de Homebrew, que ya lo construye para Intel y
+  Apple Silicon. Se instala *keg-only* (no se enlaza en tu `PATH`), así que no pisa ningún otro PHP; `mrt` solo
+  lo usa en los proyectos con `.php-version` = `7.4`.
+- Los `.php-version`, `mrt php local`, `composer` y los atajos funcionan igual que en Linux.
+- Las extensiones de esa versión se gestionan con Homebrew (por ejemplo
+  `brew install shivammathur/extensions/redis@7.4`), no con `mrt php ext add`.
+- No hay compilación desde fuente (`--profile source`) en macOS, y `mrt php uninstall 7.4` solo quita el
+  registro de `mrt`; para borrar el PHP de Homebrew usa `brew uninstall`.
+- Si algo falla, abre un *issue* con la salida de `mrt doctor`, tu versión de macOS y tu chip.
 
 ---
 
@@ -109,7 +130,7 @@ Variables opcionales: `MRT_REPO` (URL git), `MRT_REF` (rama o tag, por defecto `
 ### Opción B: desde el repositorio clonado
 
 ```sh
-scripts/build.sh                  # compila dist/mrt-linux-amd64 y dist/mrt-linux-arm64 (requiere Go 1.22+)
+scripts/build.sh                  # compila dist/mrt-{linux,darwin}-{amd64,arm64} (requiere Go 1.22+)
 scripts/install.sh --write-rc     # instala en ~/.mrt y añade la línea al .bashrc/.zshrc
 ```
 
@@ -354,6 +375,8 @@ ambas, prefiere el binario precompilado por rapidez.
    OpenSSL 1.1.1w, libxml2 2.9.14, libxslt, oniguruma, SQLite, curl, libpng, libjpeg-turbo, freetype,
    libzip, ICU 72, libsodium, ncurses, readline y libpq. Así el resultado no depende de las versiones de
    librerías de tu distro (por ejemplo, PHP 7.4 no funciona con OpenSSL 3).
+3. **Homebrew** (solo macOS, experimental): para PHP 7.4, mediante el tap `shivammathur/php`
+   (ver [macOS](#macos-experimental)).
 
 ---
 
@@ -379,6 +402,9 @@ Probado en Ubuntu 26.04 (WSL, amd64, GCC 15):
 - Qué extensiones trae exactamente el binario estático `bulk` (compruébalo con `php -m`).
 - arm64: solo se comprobó que `mrt` compila para esa arquitectura, no que se ejecute.
 - Otras distros además de Ubuntu (Debian, Fedora, Alpine).
+- **macOS completo** (binarios estáticos y PHP 7.4 vía Homebrew): nada se ha ejecutado en un Mac; solo
+  se comprobó que `mrt` compila para `darwin/amd64` y `darwin/arm64`. Tampoco se sabe aún si los binarios
+  estáticos de macOS arrancan sin avisos de seguridad del sistema.
 - `get.sh`: la negativa a correr como root y la opción `--write-rc`.
 
 Nota sobre Composer: desde la 2.9, `composer require/update/create-project` bloquea por defecto los paquetes
@@ -388,7 +414,8 @@ desactiva con `COMPOSER_NO_SECURITY_BLOCKING=1` o `config.audit.block-insecure: 
 
 Límites conocidos:
 
-- Solo Linux (WSL incluido). No hay soporte nativo para Windows ni macOS.
+- Linux (WSL incluido) y, de forma experimental, macOS. No hay soporte nativo para Windows.
+- En macOS no se compila PHP desde fuente: 8.0+ va con binarios estáticos y 7.4 con Homebrew.
 - Compilación desde fuente: solo 7.4 a 8.5. PHP 7.3 o anterior no está soportado.
 - Los binarios estáticos no admiten `ext add`; para eso, instala con `--profile source`.
 - Las rutas de compilación quedan fijadas: si mueves `MRT_HOME`, reinstala las versiones.

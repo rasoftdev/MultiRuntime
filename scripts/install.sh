@@ -11,10 +11,14 @@ case "$(uname -m)" in
   aarch64|arm64) arch=arm64 ;;
   *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
-[ "$(uname -s)" = Linux ] || { echo "mrt supports Linux only" >&2; exit 1; }
+case "$(uname -s)" in
+  Linux)  os=linux ;;
+  Darwin) os=darwin ;;   # experimental: prebuilt PHP binaries only (8.0+)
+  *) echo "mrt supports Linux and, experimentally, macOS" >&2; exit 1 ;;
+esac
 
 here=$(cd "$(dirname "$0")" && pwd)
-bin="$here/../dist/mrt-linux-$arch"
+bin="$here/../dist/mrt-$os-$arch"
 tmp=""
 if [ -n "${MRT_URL:-}" ]; then
   tmp=$(mktemp)

@@ -103,6 +103,9 @@ func ExtAdd(ver, nameSpec string) error {
 	if err != nil {
 		return err
 	}
+	if m.Provider == "homebrew" {
+		return fmt.Errorf("PHP %s comes from Homebrew; add extensions there instead, e.g.\n  brew install shivammathur/extensions/redis@7.4", ver)
+	}
 	if m.Provider != "source" {
 		return fmt.Errorf("PHP %s is a prebuilt static binary and cannot load extensions.\nReinstall it from source: mrt php uninstall %s && mrt php install %s --profile source", ver, ver, ver)
 	}

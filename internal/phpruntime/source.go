@@ -153,6 +153,9 @@ func supported(v versions.V) bool {
 }
 
 func (sourceProvider) List() ([]Release, error) {
+	if runtime.GOOS != "linux" {
+		return nil, nil // source builds are Linux-only; do not offer what cannot be installed
+	}
 	var out []Release
 	for _, major := range []int{7, 8} {
 		m, err := fetchPHPNet(major)

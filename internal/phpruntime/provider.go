@@ -23,7 +23,7 @@ type Provider interface {
 	Install(r Release, prefix string) error
 }
 
-var providers = []Provider{&staticProvider{profile: "bulk"}, sourceProvider{}}
+var providers = []Provider{&staticProvider{profile: "bulk"}, sourceProvider{}, brewProvider{}}
 
 // SetProfile selects the static-php-cli build profile (bulk, common, minimal),
 // or "source" to force compiling from php.net sources.
@@ -36,7 +36,7 @@ func SetProfile(p string) {
 		providers = []Provider{sourceProvider{}}
 		return
 	}
-	providers = []Provider{&staticProvider{profile: p}, sourceProvider{}}
+	providers = []Provider{&staticProvider{profile: p}, sourceProvider{}, brewProvider{}}
 }
 
 // Remote lists every release from every provider, newest preference first per version.

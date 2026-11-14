@@ -18,7 +18,11 @@ HOME_DIR="${MRT_HOME:-$HOME/.mrt}"
 say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[ "$(uname -s)" = "Linux" ] || die "mrt only runs on Linux (WSL included)."
+case "$(uname -s)" in
+  Linux)  OS=linux ;;
+  Darwin) OS=darwin ;;   # experimental: prebuilt PHP binaries only (8.0+)
+  *) die "mrt runs on Linux (WSL included) and, experimentally, macOS." ;;
+esac
 if [ "$(id -u)" -eq 0 ] && [ -z "${MRT_ALLOW_ROOT:-}" ]; then
   die "Do not run as root: mrt installs into your own home. Remove sudo (or set MRT_ALLOW_ROOT=1)."
 fi
@@ -59,22 +63,23 @@ git clone --quiet --depth 1 --branch "$REF" "$REPO" "$WORK/repo"
 need_go=1
 if command -v go >/dev/null; then
   have="$(go env GOVERSION 2>/dev/null | sed 's/^go//')"
-  [ -n "$have" ] && [ "$(printf '%s\n1.22\n' "$have" | sort -V | head -1)" = "1.22" ] && need_go=0
+  # portable "go >= 1.22" check (BSD sort on macOS may lack -V)
+  if [ -n "$have" ] && echo "$have" | awk -F. '{exit !(($1+0>1)||($1+0==1&&$2+0>=22))}'; then need_go=0; fi
 fi
 if [ "$need_go" -eq 1 ]; then
   say "Downloading a temporary Go $GO_VERSION (it will be removed when finished)..."
-  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" | tar -C "$WORK" -xz
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.${OS}-${ARCH}.tar.gz" | tar -C "$WORK" -xz
   export PATH="$WORK/go/bin:$PATH"
 fi
 export GOCACHE="$WORK/gocache" GOPATH="$WORK/gopath" GOTOOLCHAIN=local CGO_ENABLED=0
 
 say "Building..."
 mkdir -p "$WORK/repo/dist"
-( cd "$WORK/repo" && go build -trimpath -ldflags "-s -w" -o "dist/mrt-linux-$ARCH" ./cmd/mrt )
+( cd "$WORK/repo" && GOOS="$OS" GOARCH="$ARCH" go build -trimpath -ldflags "-s -w" -o "dist/mrt-$OS-$ARCH" ./cmd/mrt )
 
 if [ "${MRT_BUILD_ONLY:-}" = "1" ]; then
   say "Build OK (test mode; nothing is installed)."
-  "$WORK/repo/dist/mrt-linux-$ARCH" version
+  "$WORK/repo/dist/mrt-$OS-$ARCH" version
   exit 0
 fi
 
@@ -87,5 +92,8 @@ cat <<'EOF'
 
 Installed. To use it now:   eval "$(~/.mrt/bin/mrt env)"
 Try:                        mrt php install 8.3   |   mrt php local 7.4
-Compiling PHP 7.4/8.x from source needs: gcc make perl pkg-config xz (and autoconf m4 for 'ext add').
+Compiling PHP 7.4/8.x from source (Linux only) needs: gcc make perl pkg-config xz (and autoconf m4 for 'ext add').
 EOF
+if [ "$OS" = "darwin" ]; then
+  echo "macOS: experimental. Only prebuilt PHP 8.0+ binaries are available (PHP 7.4: use Homebrew's shivammathur/php tap)."
+fi

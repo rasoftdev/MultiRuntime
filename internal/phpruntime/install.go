@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/rasoftdev/multiruntime/internal/config"
@@ -108,6 +109,9 @@ func enableOpcache(prefix string) error {
 }
 
 func legacyHint(spec string) string {
+	if runtime.GOOS == "darwin" {
+		return "On macOS, prebuilt binaries cover PHP 8.0+ and PHP 7.4 is installed through Homebrew (shivammathur/php)."
+	}
 	if strings.HasPrefix(spec, "5") || strings.HasPrefix(spec, "7") || strings.HasPrefix(spec, "8.0") {
 		return "Legacy versions supported: 7.4 and 8.0 (built from source). Older ones are not supported yet."
 	}
